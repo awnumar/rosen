@@ -6,7 +6,7 @@ import (
 
 // Client implements the client-side of a tunnel.
 type Client interface {
-	ProxyConnection(network, address string, conn net.Conn) error
+	ProxyConnection(dest Endpoint, conn net.Conn) error
 }
 
 // Server implements the server-side of a tunnel.

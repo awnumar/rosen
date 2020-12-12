@@ -42,10 +42,10 @@ This will launch a SOCKS server on the default port.
 
 ### Future development
 
-- Support other cover protocols.
-- Auto HTTPS certificate provision with LetsEncrypt.
+- Implement reliability mechanism in HTTPS tunnel.
 - Verify SOCKS server supports UDP and IPv6.
 - TUN/TAP support in addition to SOCKS.
+- Support other cover protocols.
 - Support multiple clients per server.
 
 ### License

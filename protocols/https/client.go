@@ -3,8 +3,6 @@ package https
 import (
 	"bytes"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -19,25 +17,25 @@ import (
 	"lukechampine.com/frand"
 )
 
-// C implements a HTTPS tunnel client.
-type C struct {
+// Client implements a HTTPS tunnel client.
+type Client struct {
 	remote    string
 	transport *http.Transport
 	proxy     *proxy.Proxy
 }
 
 // NewClient returns a new HTTPS client.
-func NewClient(remote string, conf config.Configuration) (*C, error) {
+func NewClient(remote string, conf config.Configuration) (*Client, error) {
 	if !strings.HasPrefix(remote, "https://") {
 		return nil, errors.New("remote address must start with https://")
 	}
 
-	trustPool, err := getTrustedCerts(conf)
+	trustPool, err := trustedCertPool(conf["pinRootCA"])
 	if err != nil {
 		return nil, err
 	}
 
-	c := &C{
+	c := &Client{
 		remote: remote,
 		transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -47,7 +45,7 @@ func NewClient(remote string, conf config.Configuration) (*C, error) {
 		proxy: proxy.NewProxy(),
 	}
 
-	go func(c *C) {
+	go func(c *Client) {
 		var responseData []proxy.Packet
 		outboundBuffer := make([]proxy.Packet, clientBufferSize)
 
@@ -99,25 +97,6 @@ func NewClient(remote string, conf config.Configuration) (*C, error) {
 }
 
 // ProxyConnection handles and proxies a single connection between a local client and the remote server.
-func (c *C) ProxyConnection(network, address string, conn net.Conn) error {
-	return c.proxy.ProxyConnection(network, address, conn)
-}
-
-func getTrustedCerts(conf config.Configuration) (*x509.CertPool, error) {
-	if conf["tlsCert"] == "" {
-		return nil, errors.New("TLS certificate must be specified")
-	}
-
-	trustPool := x509.NewCertPool()
-
-	pemData, err := base64.RawStdEncoding.DecodeString(conf["tlsCert"])
-	if err != nil {
-		return nil, err
-	}
-
-	if ok := trustPool.AppendCertsFromPEM(pemData); !ok {
-		return nil, errors.New("could not parse TLS certificate")
-	}
-
-	return trustPool, nil
+func (c *Client) ProxyConnection(dest proxy.Endpoint, conn net.Conn) error {
+	return c.proxy.ProxyConnection(dest, conn)
 }

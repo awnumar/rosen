@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -15,33 +14,23 @@ import (
 	"github.com/awnumar/rosen/proxy"
 )
 
-// S implements a HTTP tunnel server.
-type S struct {
-	conf   config.Configuration
-	server *http.Server
-	proxy  *proxy.Proxy
-	buffer []proxy.Packet
+// Server implements a HTTP tunnel server.
+type Server struct {
+	conf      config.Configuration
+	tlsConfig *tls.Config
+	redirect  *http.Server
+	server    *http.Server
+	cmd       chan string
+	cmdDone   chan struct{}
+	proxy     *proxy.Proxy
+	buffer    []proxy.Packet
 }
 
-var s = &S{}
+var s = &Server{}
 
 // NewServer returns a new HTTPS server.
-func NewServer(conf config.Configuration) (*S, error) {
-	if conf["tlsCert"] == "" || conf["tlsKey"] == "" {
-		return nil, errors.New("TLS certificate and key must be specified")
-	}
-
-	tlsCertPem, err := base64.RawStdEncoding.DecodeString(conf["tlsCert"])
-	if err != nil {
-		return nil, err
-	}
-
-	tlsKeyPem, err := base64.RawStdEncoding.DecodeString(conf["tlsKey"])
-	if err != nil {
-		return nil, err
-	}
-
-	cert, err := tls.X509KeyPair(tlsCertPem, tlsKeyPem)
+func NewServer(conf config.Configuration) (*Server, error) {
+	certReloader, err := getCertificate(conf["hostname"], conf["email"])
 	if err != nil {
 		return nil, err
 	}
@@ -60,28 +49,98 @@ func NewServer(conf config.Configuration) (*S, error) {
 		MinVersion:       tls.VersionTLS12,
 		MaxVersion:       tlsMaxVersion,
 		CurvePreferences: []tls.CurveID{tls.X25519},
-		Certificates:     []tls.Certificate{cert},
+		GetCertificate:   certReloader.GetCertificateFunc(),
 	}
 
-	server := &http.Server{
-		Addr:      ":443",
-		Handler:   http.HandlerFunc(handler),
-		TLSConfig: tlsConfig,
-	}
-
-	s = &S{
-		conf:   conf,
-		server: server,
-		proxy:  proxy.NewProxy(),
-		buffer: make([]proxy.Packet, serverBufferSize),
+	s = &Server{
+		conf:      conf,
+		tlsConfig: tlsConfig,
+		proxy:     proxy.NewProxy(),
+		cmd:       make(chan string),
+		cmdDone:   make(chan struct{}),
+		buffer:    make([]proxy.Packet, serverBufferSize),
 	}
 
 	return s, nil
 }
 
+// Start launches the server.
+func (s *Server) Start() error {
+	httpError := make(chan error)
+	httpsError := make(chan error)
+	defer close(httpError)
+	defer close(httpsError)
+
+	start := func() struct{} {
+		s.redirect = &http.Server{
+			Addr: ":80",
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
+			}),
+		}
+		s.server = &http.Server{
+			Addr:      ":443",
+			Handler:   http.HandlerFunc(handler),
+			TLSConfig: s.tlsConfig,
+		}
+		go func() {
+			httpError <- s.redirect.ListenAndServe()
+		}()
+		go func() {
+			httpsError <- s.server.ListenAndServeTLS("", "")
+		}()
+		return struct{}{}
+	}
+
+	shutdown := func(serv *http.Server) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+		serv.Shutdown(ctx)
+		cancel()
+	}
+
+	stop := func() struct{} {
+		shutdown(s.server)
+		shutdown(s.redirect)
+		return struct{}{}
+	}
+
+	start()
+
+	cmdShutdown := false
+	for {
+		select {
+		case err := <-httpError:
+			if !cmdShutdown {
+				shutdown(s.server)
+				return err
+			}
+		case err := <-httpsError:
+			if !cmdShutdown {
+				shutdown(s.redirect)
+				return err
+			}
+		case cmd := <-s.cmd:
+			switch cmd {
+			case "stop":
+				cmdShutdown = true
+				s.cmdDone <- stop()
+			case "start":
+				cmdShutdown = false
+				s.cmdDone <- start()
+			case "end":
+				cmdShutdown = true
+				stop()
+				return http.ErrServerClosed
+			default:
+				panic("error: unknown command sent to server handler; please report this issue")
+			}
+		}
+	}
+}
+
 // Compare key with execution time that is a function of input length and not of input contents.
 // Average time Delta between a valid and invalid key length is 29ns, on a Ryzen 3700X.
-func (s *S) authenticate(provided string) bool {
+func (s *Server) authenticate(provided string) bool {
 	authToken := s.conf["authToken"]
 
 	if len(provided) != len(authToken) {
@@ -96,44 +155,6 @@ func (s *S) authenticate(provided string) bool {
 	}
 
 	return equal
-}
-
-// Start launches the server.
-func (s *S) Start() error {
-	httpError := make(chan error)
-	httpsError := make(chan error)
-	defer close(httpError)
-	defer close(httpsError)
-
-	httpServer := &http.Server{
-		Addr: ":80",
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
-		}),
-	}
-
-	go func() {
-		httpError <- httpServer.ListenAndServe()
-	}()
-
-	go func() {
-		httpsError <- s.server.ListenAndServeTLS("", "")
-	}()
-
-	select {
-	case err := <-httpError:
-		shutdown(s.server)
-		return err
-	case err := <-httpsError:
-		shutdown(httpServer)
-		return err
-	}
-}
-
-func shutdown(s *http.Server) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
-	s.Shutdown(ctx)
-	cancel()
 }
 
 // authenticate request

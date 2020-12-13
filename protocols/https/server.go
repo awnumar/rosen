@@ -45,20 +45,18 @@ func NewServer(conf config.Configuration) (*Server, error) {
 		return nil, errors.New("tlsMaxversion must be one of 1.2 or 1.3")
 	}
 
-	tlsConfig := &tls.Config{
-		MinVersion:       tls.VersionTLS12,
-		MaxVersion:       tlsMaxVersion,
-		CurvePreferences: []tls.CurveID{tls.X25519},
-		GetCertificate:   certReloader.GetCertificateFunc(),
-	}
-
 	s = &Server{
-		conf:      conf,
-		tlsConfig: tlsConfig,
-		proxy:     proxy.NewProxy(),
-		cmd:       make(chan string),
-		cmdDone:   make(chan struct{}),
-		buffer:    make([]proxy.Packet, serverBufferSize),
+		conf: conf,
+		tlsConfig: &tls.Config{
+			MinVersion:       tls.VersionTLS12,
+			MaxVersion:       tlsMaxVersion,
+			CurvePreferences: []tls.CurveID{tls.X25519},
+			GetCertificate:   certReloader.GetCertificateFunc(),
+		},
+		proxy:   proxy.NewProxy(),
+		cmd:     make(chan string),
+		cmdDone: make(chan struct{}),
+		buffer:  make([]proxy.Packet, serverBufferSize),
 	}
 
 	return s, nil

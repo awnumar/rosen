@@ -3,6 +3,7 @@ package https
 import (
 	"crypto/x509"
 	"errors"
+	"runtime"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/foomo/simplecert"
@@ -44,7 +45,9 @@ func trustedCertPool(pinRoot string) (trustPool *x509.CertPool, err error) {
 			panic("error: could not parse trusted root certificate")
 		}
 	case "no":
-		trustPool, err = x509.SystemCertPool()
+		if runtime.GOOS != "windows" {
+			trustPool, err = x509.SystemCertPool()
+		}
 	}
 	return
 }

@@ -14,13 +14,13 @@ import (
 var protocols = []string{"https"}
 
 // Specification is a set of config values for a protocol. One needs to be defined per supported protocol.
-type Specification struct {
+type specification struct {
 	protocol string
-	options  []Option
+	options  []option
 }
 
 // Option represents a configuration value that we will ask the user for.
-type Option struct {
+type option struct {
 	key     string
 	prompt  string
 	process func(string) (string, error)
@@ -35,6 +35,7 @@ func (c Configuration) JSON() ([]byte, error) {
 }
 
 // Configure launches the quiz that asks the user for configuration values.
+// The resulting configuration is written to the working directory and the filename is returned.
 func Configure() (string, error) {
 	protocol := answer(fmt.Sprintf("Which protocol do you want to use?\nChoose from {%s}\n> ", strList(protocols)),
 		func(resp string) (string, error) {
@@ -52,7 +53,7 @@ func Configure() (string, error) {
 	}
 }
 
-func processSpec(spec Specification) (string, error) {
+func processSpec(spec specification) (string, error) {
 	config := make(Configuration)
 	config["protocol"] = spec.protocol
 	config["authToken"] = generateAuthToken()

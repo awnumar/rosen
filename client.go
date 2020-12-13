@@ -91,7 +91,7 @@ func (d *dialer) Dial(network, address string) (net.Conn, error) {
 	case err := <-errChannel:
 		return nil, err
 	case serverConn := <-connChannel:
-		if err := d.tun.ProxyConnection(network, address, serverConn); err != nil {
+		if err := d.tun.ProxyConnection(proxy.NewEndpoint(network, address), serverConn); err != nil {
 			fmt.Println(err)
 		}
 	}

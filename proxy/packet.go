@@ -28,6 +28,14 @@ type Endpoint struct {
 	Address string
 }
 
+// NewEndpoint initialises an Endpoint object.
+func NewEndpoint(network, address string) Endpoint {
+	return Endpoint{
+		Network: network,
+		Address: address,
+	}
+}
+
 // NewConnection returns true if the message refers to a connection that has not yet been opened.
 func (p Packet) NewConnection() bool {
 	return p.Type == Open
@@ -38,8 +46,8 @@ func (p Packet) Closed() bool {
 	return p.Type == Close
 }
 
-// NewDataPacket returns a message for a new connection.
-func NewDataPacket(id string, dest Endpoint) Packet {
+// NewPacket returns a message for a new connection.
+func NewPacket(id string, dest Endpoint) Packet {
 	return Packet{
 		ID:   id,
 		Dest: dest,

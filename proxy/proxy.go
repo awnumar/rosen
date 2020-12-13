@@ -33,25 +33,22 @@ func NewProxy() *Proxy {
 	}
 }
 
-// ProxyConnection will start handlers for a connection that wishest to talk to a given endpoint.
+// ProxyConnection will start handlers for a connection that wishes to talk to a given endpoint.
 // If conn == nil, a connection to the given endpoint will be opened.
 // Otherwise, a packet containing instructions to open a connection is sent on the p.fromConns channel.
-func (p *Proxy) ProxyConnection(network, address string, conn net.Conn) (err error) {
+func (p *Proxy) ProxyConnection(dest Endpoint, conn net.Conn) (err error) {
 	id := generateRandomConnectionID()
-	return p.proxyConnection(id, network, address, conn)
+	return p.proxyConnection(id, dest, conn)
 }
 
-func (p *Proxy) proxyConnection(id, network, address string, conn net.Conn) (err error) {
+func (p *Proxy) proxyConnection(id string, dest Endpoint, conn net.Conn) (err error) {
 	if conn == nil {
-		conn, err = net.Dial(network, address)
+		conn, err = net.Dial(dest.Network, dest.Address)
 		if err != nil {
 			return err
 		}
 	} else {
-		p.fromConns <- NewDataPacket(id, Endpoint{
-			Network: network,
-			Address: address,
-		})
+		p.fromConns <- NewPacket(id, dest)
 	}
 
 	toConn := make(chan Packet, toConnChannelBufferSize)
@@ -111,7 +108,7 @@ func (p *Proxy) Ingest(data []Packet) {
 		pipeInterface, exists := p.handlers.Load(id)
 		if !exists {
 			if data[i].NewConnection() {
-				p.proxyConnection(data[i].ID, data[i].Dest.Network, data[i].Dest.Address, nil)
+				p.proxyConnection(data[i].ID, data[i].Dest, nil)
 			}
 			continue
 		}

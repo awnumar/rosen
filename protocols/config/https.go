@@ -11,6 +11,20 @@ var https = specification{
 	protocol: "https",
 	options: []option{
 		{
+			key:    "proxyAddr",
+			prompt: "Enter the address that the client will use to connect to the proxy server.\nIt must start with https://\n> ",
+			process: func(resp string) (string, error) {
+				resp = strings.TrimSpace(resp)
+				if !govalidator.IsURL(resp) {
+					return "", errors.New("input must be an URL")
+				}
+				if !strings.HasPrefix(resp, "https://") {
+					return "", errors.New("input must start with https://")
+				}
+				return resp, nil
+			},
+		},
+		{
 			key:    "hostname",
 			prompt: "Enter the public hostname that your server will be accessible from.\nThis will be used for TLS certificate provisioning.\n> ",
 			process: func(resp string) (string, error) {

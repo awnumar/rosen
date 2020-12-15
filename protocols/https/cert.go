@@ -42,7 +42,7 @@ func trustedCertPool(pinRoot string) (trustPool *x509.CertPool, err error) {
 	case "yes":
 		trustPool = x509.NewCertPool()
 		if ok := trustPool.AppendCertsFromPEM([]byte(trustedRootPEMs)); !ok {
-			panic("error: could not parse trusted root certificate")
+			panic("error: could not parse trusted root certificates")
 		}
 	case "no":
 		if runtime.GOOS != "windows" {

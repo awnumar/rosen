@@ -35,7 +35,7 @@ rosen -mode server -config example.json
 And finally on the client side run
 
 ```
-rosen -mode client -proxyAddr https://example.com -config example.json
+rosen -mode client -config example.json
 ```
 
 This will launch a SOCKS server on the default port.

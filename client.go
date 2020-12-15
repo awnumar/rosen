@@ -19,7 +19,7 @@ func client(conf config.Configuration) (err error) {
 	case "":
 		return errors.New("protocol must be specified in config file")
 	case "https":
-		client, err = https.NewClient(proxyAddr, conf)
+		client, err = https.NewClient(conf)
 	default:
 		return errors.New("unknown protocol: " + conf["protocol"])
 	}

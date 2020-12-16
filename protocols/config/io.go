@@ -9,7 +9,20 @@ import (
 	"lukechampine.com/frand"
 )
 
-func writeTofile(config Configuration) (string, error) {
+// LoadConfig loads a configuration from a file.
+func LoadConfig(filepath string) (Configuration, error) {
+	data, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+	var conf Configuration
+	if err := json.Unmarshal(data, &conf); err != nil {
+		return nil, err
+	}
+	return conf, verify(conf)
+}
+
+func writeConfig(config Configuration) (string, error) {
 	data, err := config.JSON()
 	if err != nil {
 		return "", err
@@ -22,19 +35,6 @@ func writeTofile(config Configuration) (string, error) {
 		return filename, err
 	}
 	return filename, nil
-}
-
-// LoadConfig loads a configuration from a file.
-func LoadConfig(filepath string) (Configuration, error) {
-	data, err := ioutil.ReadFile(filepath)
-	if err != nil {
-		return nil, err
-	}
-	var conf Configuration
-	if err := json.Unmarshal(data, &conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
 }
 
 func randConfigFileName() string {

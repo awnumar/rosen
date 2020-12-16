@@ -4,17 +4,14 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/awnumar/rosen/protocols/config"
 	"github.com/awnumar/rosen/proxy"
 
-	"github.com/asaskevich/govalidator"
 	"lukechampine.com/frand"
 )
 
@@ -27,13 +24,6 @@ type Client struct {
 
 // NewClient returns a new HTTPS client.
 func NewClient(conf config.Configuration) (*Client, error) {
-	if !govalidator.IsURL(conf["proxyAddr"]) {
-		return nil, errors.New("config: proxy address must be an URL")
-	}
-	if !strings.HasPrefix(conf["proxyAddr"], "https://") {
-		return nil, errors.New("config: proxy address must start with https://")
-	}
-
 	trustPool, err := trustedCertPool(conf["pinRootCA"])
 	if err != nil {
 		return nil, err

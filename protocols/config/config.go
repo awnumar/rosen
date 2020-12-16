@@ -53,6 +53,22 @@ func Configure() (string, error) {
 	}
 }
 
+func verify(c Configuration) error {
+	var s specification
+	switch c["protocol"] {
+	case "https":
+		s = https
+	default:
+		return errors.New("unknown protocol")
+	}
+	for _, o := range s.options {
+		if _, err := o.process(c[o.key]); err != nil {
+			return errors.New("config error: " + o.key + " " + err.Error())
+		}
+	}
+	return nil
+}
+
 func processSpec(spec specification) (string, error) {
 	config := make(Configuration)
 	config["protocol"] = spec.protocol
@@ -60,7 +76,7 @@ func processSpec(spec specification) (string, error) {
 	for _, q := range spec.options {
 		config[q.key] = answer(q.prompt, q.process)
 	}
-	return writeTofile(config)
+	return writeConfig(config)
 }
 
 func answer(prompt string, verify func(string) (string, error)) (data string) {

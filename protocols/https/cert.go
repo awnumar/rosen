@@ -5,17 +5,10 @@ import (
 	"errors"
 	"runtime"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/foomo/simplecert"
 )
 
 func getCertificate(hostname, email string) (*simplecert.CertReloader, error) {
-	if !govalidator.IsDNSName(hostname) {
-		return nil, errors.New("config: '" + hostname + "' is not a DNS hostname")
-	}
-	if !govalidator.IsEmail(email) {
-		return nil, errors.New("config: '" + email + "' is not an email address")
-	}
 	config := simplecert.Default
 	config.Domains = []string{hostname}
 	config.CacheDir = "/etc/letsencrypt/live/" + hostname
@@ -34,15 +27,15 @@ func getCertificate(hostname, email string) (*simplecert.CertReloader, error) {
 	return simplecert.Init(config, func() { s.cmd <- "end" })
 }
 
-func trustedCertPool(pinRoot string) (trustPool *x509.CertPool, err error) {
-	if pinRoot != "yes" && pinRoot != "no" {
-		return nil, errors.New("config: invalid option for pinRootCA (must be yes or no)")
+func trustedCertPool(pinRootCA string) (trustPool *x509.CertPool, err error) {
+	if pinRootCA != "yes" && pinRootCA != "no" {
+		return nil, errors.New("config: pinRootCA must be yes or no")
 	}
-	switch pinRoot {
+	switch pinRootCA {
 	case "yes":
 		trustPool = x509.NewCertPool()
 		if ok := trustPool.AppendCertsFromPEM([]byte(trustedRootPEMs)); !ok {
-			panic("error: could not parse trusted root certificate")
+			panic("error: could not parse trusted root certificates")
 		}
 	case "no":
 		if runtime.GOOS != "windows" {

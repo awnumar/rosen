@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/awnumar/rosen/protocols/config"
@@ -25,18 +23,14 @@ type Client struct {
 }
 
 // NewClient returns a new HTTPS client.
-func NewClient(remote string, conf config.Configuration) (*Client, error) {
-	if !strings.HasPrefix(remote, "https://") {
-		return nil, errors.New("remote address must start with https://")
-	}
-
+func NewClient(conf config.Configuration) (*Client, error) {
 	trustPool, err := trustedCertPool(conf["pinRootCA"])
 	if err != nil {
 		return nil, err
 	}
 
 	c := &Client{
-		remote: remote,
+		remote: conf["proxyAddr"],
 		transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: trustPool,

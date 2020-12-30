@@ -37,7 +37,7 @@ func NewProxy() *Proxy {
 // If conn == nil, a connection to the given endpoint will be opened.
 // Otherwise, a packet containing instructions to open a connection is sent on the p.fromConns channel.
 func (p *Proxy) ProxyConnection(dest Endpoint, conn net.Conn) (err error) {
-	id := generateRandomConnectionID()
+	id := base64.RawStdEncoding.EncodeToString(frand.Bytes(16))
 	return p.proxyConnection(id, dest, conn)
 }
 
@@ -140,8 +140,4 @@ func (p *Proxy) Fill(buffer []Packet) int {
 		buffer[i] = <-p.fromConns
 	}
 	return size
-}
-
-func generateRandomConnectionID() string {
-	return base64.RawStdEncoding.EncodeToString(frand.Bytes(16))
 }

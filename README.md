@@ -14,7 +14,8 @@ This package implements a modular framework for proxies that encapsulate traffic
 2. **Endpoint-fingerprinting resistance**. It should be difficult to use active probing to ascertain that a given server is actually a proxy server. This is accomplished by responding as a proxy if and only if a valid key is provided and falling back to some default behaviour otherwise.
 3. **Modularity**. It should be relatively easy to add support for another cover protocol or configure the behaviour of an existing protocol to adapt to changing adversarial conditions. This is facilitated by a modular architecture.
 4. **Compatibility**. It should be possible to route most application traffic through the proxy. This is why a SOCKS interface was chosen, but TUN support is also a goal.
-4. **Usability**. It should be easy to use.
+5. **Performance**. It should be fast and have minimal overhead.
+6. **Usability**. It should be easy to use.
 
 ### Supported protocols
 
@@ -50,7 +51,6 @@ This will launch a SOCKS server on the default port (23579). Use the `-help` fla
 
 ### Future development
 
-- Implement reliability mechanism in HTTPS tunnel.
 - Verify SOCKS server supports UDP and IPv6.
 - TUN support in addition to SOCKS.
 - Support other cover protocols.

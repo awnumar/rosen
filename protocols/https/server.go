@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/awnumar/rosen/protocols/config"
@@ -24,6 +25,13 @@ type Server struct {
 	cmdDone   chan struct{}
 	proxy     *proxy.Proxy
 	buffer    []proxy.Packet
+	previous  *transaction
+}
+
+type transaction struct {
+	mu       sync.Mutex
+	id       string
+	respData []proxy.Packet
 }
 
 var s = &Server{}
@@ -53,10 +61,11 @@ func NewServer(conf config.Configuration) (*Server, error) {
 			CurvePreferences: []tls.CurveID{tls.X25519},
 			GetCertificate:   certReloader.GetCertificateFunc(),
 		},
-		proxy:   proxy.NewProxy(),
-		cmd:     make(chan string),
-		cmdDone: make(chan struct{}),
-		buffer:  make([]proxy.Packet, serverBufferSize),
+		cmd:      make(chan string),
+		cmdDone:  make(chan struct{}),
+		proxy:    proxy.NewProxy(),
+		buffer:   make([]proxy.Packet, serverBufferSize),
+		previous: &transaction{},
 	}
 
 	return s, nil
@@ -160,48 +169,47 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if s.authenticate(r.Header.Get("Auth-Token")) {
 		proxyHandler(w, r) // authenticated proxy handler
 	} else {
-		staticHandler(w, r) // decoy handler
+		staticWebsiteHandler.ServeHTTP(w, r) // decoy handler
 	}
-}
-
-var staticWebsiteHandler = http.FileServer(http.Dir("public"))
-
-func staticHandler(w http.ResponseWriter, r *http.Request) {
-	staticWebsiteHandler.ServeHTTP(w, r)
 }
 
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method must be POST", http.StatusMethodNotAllowed)
+		http.Error(w, "error: method must be POST", http.StatusMethodNotAllowed)
+	}
+
+	id := r.Header.Get("ID")
+	if id == "" {
+		http.Error(w, "error: ID header must be included", http.StatusBadRequest)
 	}
 
 	reqBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return
+		http.Error(w, "error while reading client payload: "+err.Error(), http.StatusInternalServerError)
 	}
 	r.Body.Close()
 
 	var packets []proxy.Packet
 	if err := json.Unmarshal(reqBytes, &packets); err != nil {
-		http.Error(w, "Failed to unmarshal payload into []Message: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "error: failed to parse JSON request: "+err.Error(), http.StatusBadRequest)
 	}
 
-	go s.proxy.Ingest(packets)
+	s.previous.mu.Lock()
 
-	size := s.proxy.Fill(s.buffer)
+	if id != s.previous.id { // previous request was successful
+		go s.proxy.Ingest(packets)
 
-	payload, err := json.Marshal(s.buffer[:size])
+		s.previous.id = id
+		s.previous.respData = s.buffer[:s.proxy.Fill(s.buffer)]
+	}
+
+	payload, err := json.Marshal(s.previous.respData)
+	s.previous.mu.Unlock()
 	if err != nil {
-		// todo: handle gracefully
-		http.Error(w, "Failed to marshal return payload: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "error: failed to marshal return payload: "+err.Error(), http.StatusInternalServerError)
 	}
 
 	if _, err := w.Write(payload); err != nil {
-		http.Error(w, "Failed to write response: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "error: failed to write response: "+err.Error(), http.StatusInternalServerError)
 	}
-
-	// reliability:
-	// server sends back OK status on response. If client doesn't receive this then client retries request.
-	// Client sends request ID with each request, server saves responses to these IDs. If client retries saved
-	// request, server replays it. if client indicates id success, server deletes response data.
 }

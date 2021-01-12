@@ -176,22 +176,26 @@ func handler(w http.ResponseWriter, r *http.Request) {
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "error: method must be POST", http.StatusMethodNotAllowed)
+		return
 	}
 
 	id := r.Header.Get("ID")
 	if id == "" {
 		http.Error(w, "error: ID header must be included", http.StatusBadRequest)
+		return
 	}
 
 	reqBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "error while reading client payload: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 	r.Body.Close()
 
 	var packets []proxy.Packet
 	if err := json.Unmarshal(reqBytes, &packets); err != nil {
 		http.Error(w, "error: failed to parse JSON request: "+err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	s.previous.mu.Lock()
@@ -207,9 +211,11 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	s.previous.mu.Unlock()
 	if err != nil {
 		http.Error(w, "error: failed to marshal return payload: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	if _, err := w.Write(payload); err != nil {
 		http.Error(w, "error: failed to write response: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 }

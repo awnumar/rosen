@@ -8,7 +8,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/awnumar/rosen/protocols/config"
@@ -25,12 +24,11 @@ type Server struct {
 	cmdDone   chan struct{}
 	proxy     *proxy.Proxy
 	buffer    []proxy.Packet
-	previous  *transaction
+	previous  chan *response
 }
 
-type transaction struct {
-	mu       sync.Mutex
-	id       string
+type response struct {
+	reqID    string
 	respData []proxy.Packet
 }
 
@@ -65,7 +63,12 @@ func NewServer(conf config.Configuration) (*Server, error) {
 		cmdDone:  make(chan struct{}),
 		proxy:    proxy.NewProxy(),
 		buffer:   make([]proxy.Packet, serverBufferSize),
-		previous: &transaction{},
+		previous: make(chan *response, 1),
+	}
+
+	s.previous <- &response{
+		reqID:    "",
+		respData: []proxy.Packet{},
 	}
 
 	return s, nil
@@ -198,17 +201,18 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.previous.mu.Lock()
+	prev := <-s.previous
 
-	if id != s.previous.id { // previous request was successful
+	if id != prev.reqID { // previous request was successful
 		go s.proxy.Ingest(packets)
 
-		s.previous.id = id
-		s.previous.respData = s.buffer[:s.proxy.Fill(s.buffer)]
+		prev.reqID = id
+		prev.respData = s.buffer[:s.proxy.Fill(s.buffer)]
 	}
 
-	payload, err := json.Marshal(s.previous.respData)
-	s.previous.mu.Unlock()
+	s.previous <- prev
+
+	payload, err := json.Marshal(prev.respData)
 	if err != nil {
 		http.Error(w, "error: failed to marshal return payload: "+err.Error(), http.StatusInternalServerError)
 		return

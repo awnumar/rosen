@@ -23,6 +23,8 @@ This package implements a modular framework for proxies that encapsulate traffic
 
 ### Installation
 
+Requires Go version 1.16 or above.
+
 ```
 go get github.com/awnumar/rosen
 ```

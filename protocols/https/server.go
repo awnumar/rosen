@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/subtle"
 	"crypto/tls"
+	"embed"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -167,12 +169,22 @@ func (s *Server) authenticate(provided string) bool {
 	return equal
 }
 
+//go:embed static/*
+var staticFiles embed.FS
+var staticHandler = func() http.Handler {
+	fSys, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		panic(err)
+	}
+	return http.FileServer(http.FS(fSys))
+}()
+
 // authenticate request
 func handler(w http.ResponseWriter, r *http.Request) {
 	if s.authenticate(r.Header.Get("Auth-Token")) {
 		proxyHandler(w, r) // authenticated proxy handler
 	} else {
-		staticWebsiteHandler.ServeHTTP(w, r) // decoy handler
+		staticHandler.ServeHTTP(w, r) // decoy handler
 	}
 }
 

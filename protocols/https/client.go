@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/awnumar/rosen/lib"
 	"github.com/awnumar/rosen/protocols/config"
 	"github.com/awnumar/rosen/proxy"
 
@@ -28,7 +29,7 @@ type Client struct {
 
 // NewClient returns a new HTTPS client.
 func NewClient(conf config.Configuration) (*Client, error) {
-	trustPool, err := trustedCertPool(conf["pinRootCA"])
+	trustPool, err := lib.TrustedCertPool(conf["pinRootCA"])
 	if err != nil {
 		return nil, err
 	}

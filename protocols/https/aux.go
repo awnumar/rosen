@@ -11,8 +11,6 @@ const (
 	serverBufferSize = 4096
 )
 
-var staticWebsiteHandler = http.FileServer(http.Dir("public"))
-
 func getResponseText(resp *http.Response) (string, error) {
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

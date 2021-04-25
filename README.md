@@ -26,8 +26,12 @@ This package implements a modular framework for proxies that encapsulate traffic
 Requires Go version 1.16 or above.
 
 ```
-go get github.com/awnumar/rosen
+git clone github.com/awnumar/rosen
+cd rosen
+go install
 ```
+
+Run Rosen with the `rosen` command. For this to work `$GOPATH/bin` must be in your PATH.
 
 ### Usage
 

@@ -1,4 +1,4 @@
-package https
+package lib
 
 import (
 	"crypto/x509"
@@ -8,26 +8,18 @@ import (
 	"github.com/foomo/simplecert"
 )
 
-func getCertificate(hostname, email string) (*simplecert.CertReloader, error) {
+func GetCertificate(hostname, email string, beforeRenew func(), afterRenew func(), failedRenew func(error), shutdown func()) (*simplecert.CertReloader, error) {
 	config := simplecert.Default
 	config.Domains = []string{hostname}
 	config.CacheDir = "/etc/letsencrypt/live/" + hostname
 	config.SSLEmail = email
-	config.WillRenewCertificate = func() {
-		s.cmd <- "stop"
-		<-s.cmdDone
-	}
-	config.DidRenewCertificate = func() {
-		s.cmd <- "start"
-		<-s.cmdDone
-	}
-	config.FailedToRenewCertificate = func(err error) {
-		panic(err)
-	}
-	return simplecert.Init(config, func() { s.cmd <- "end" })
+	config.WillRenewCertificate = beforeRenew
+	config.DidRenewCertificate = afterRenew
+	config.FailedToRenewCertificate = failedRenew
+	return simplecert.Init(config, shutdown)
 }
 
-func trustedCertPool(pinRootCA string) (trustPool *x509.CertPool, err error) {
+func TrustedCertPool(pinRootCA string) (trustPool *x509.CertPool, err error) {
 	if pinRootCA != "yes" && pinRootCA != "no" {
 		return nil, errors.New("config: pinRootCA must be yes or no")
 	}

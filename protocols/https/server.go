@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/awnumar/rosen/lib"
 	"github.com/awnumar/rosen/protocols/config"
 	"github.com/awnumar/rosen/proxy"
 )
@@ -38,11 +39,6 @@ var s = &Server{}
 
 // NewServer returns a new HTTPS server.
 func NewServer(conf config.Configuration) (*Server, error) {
-	certReloader, err := getCertificate(conf["hostname"], conf["email"])
-	if err != nil {
-		return nil, err
-	}
-
 	var tlsMaxVersion uint16
 	switch conf["tlsMaxVersion"] {
 	case "1.2":
@@ -59,7 +55,6 @@ func NewServer(conf config.Configuration) (*Server, error) {
 			MinVersion:       tls.VersionTLS12,
 			MaxVersion:       tlsMaxVersion,
 			CurvePreferences: []tls.CurveID{tls.X25519},
-			GetCertificate:   certReloader.GetCertificateFunc(),
 		},
 		cmd:      make(chan string),
 		cmdDone:  make(chan struct{}),
@@ -78,6 +73,23 @@ func NewServer(conf config.Configuration) (*Server, error) {
 
 // Start launches the server.
 func (s *Server) Start() error {
+	certReloader, err := lib.GetCertificate(
+		s.conf["hostname"],
+		s.conf["email"],
+		func() {
+			s.cmd <- "stop"
+			<-s.cmdDone
+		}, func() {
+			s.cmd <- "start"
+			<-s.cmdDone
+		}, func(err error) {
+			panic(err)
+		}, func() { s.cmd <- "end" })
+	if err != nil {
+		return err
+	}
+	s.tlsConfig.GetCertificate = certReloader.GetCertificateFunc()
+
 	httpError := make(chan error)
 	httpsError := make(chan error)
 	defer close(httpError)

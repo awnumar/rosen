@@ -6,8 +6,6 @@
 
 This package implements a modular framework for proxies that encapsulate traffic within some cover protocol to circumvent censorship based on deep packet inspection and endpoint fingerprinting techniques. For more information, check out [this](http://spacetime.dev/rosen-censorship-resistant-proxy-tunnel) post.
 
-Requires Go version 1.16 or above.
-
 **This package is currently pre-alpha and is considered experimental.**
 
 ### Goals
@@ -24,6 +22,8 @@ Requires Go version 1.16 or above.
 - HTTPS
 
 ### Installation
+
+Requires Go version 1.16 or above.
 
 Installation will build the package and install it into `$GOPATH/bin`.
 

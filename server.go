@@ -3,13 +3,13 @@ package main
 import (
 	"errors"
 
-	"github.com/awnumar/rosen/protocols/config"
+	"github.com/awnumar/rosen/lib/config"
 	"github.com/awnumar/rosen/protocols/https"
-	"github.com/awnumar/rosen/proxy"
+	"github.com/awnumar/rosen/router"
 )
 
 func server(conf config.Configuration) (err error) {
-	var server proxy.Server
+	var server router.Server
 
 	switch conf["protocol"] {
 	case "":

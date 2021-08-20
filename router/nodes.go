@@ -1,4 +1,4 @@
-package proxy
+package router
 
 import (
 	"net"
@@ -6,7 +6,7 @@ import (
 
 // Client implements the client-side of a tunnel.
 type Client interface {
-	ProxyConnection(dest Endpoint, conn net.Conn) error
+	HandleConnection(dest Endpoint, conn net.Conn) error
 }
 
 // Server implements the server-side of a tunnel.

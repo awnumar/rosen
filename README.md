@@ -6,8 +6,6 @@
 
 This package implements a modular framework for proxies that encapsulate traffic within some cover protocol to circumvent censorship based on deep packet inspection and endpoint fingerprinting techniques. For more information, check out [this](http://spacetime.dev/rosen-censorship-resistant-proxy-tunnel) post.
 
-**This package is currently pre-alpha and is considered experimental.**
-
 ### Goals
 
 1. **Unobservability**. It should be difficult to distinguish obfuscated traffic from innocent background traffic using the same protocol.
@@ -19,6 +17,7 @@ This package implements a modular framework for proxies that encapsulate traffic
 
 ### Supported protocols
 
+- Encrypted WebSockets
 - HTTPS
 
 ### Installation

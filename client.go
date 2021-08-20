@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/awnumar/rosen/protocols/config"
+	"github.com/awnumar/rosen/lib/config"
 	"github.com/awnumar/rosen/protocols/https"
-	"github.com/awnumar/rosen/proxy"
+	"github.com/awnumar/rosen/router"
 
 	"github.com/eahydra/socks"
 )
 
 func client(conf config.Configuration) (err error) {
-	var client proxy.Client
+	var client router.Client
 
 	switch conf["protocol"] {
 	case "":
@@ -46,12 +46,12 @@ func client(conf config.Configuration) (err error) {
 }
 
 type dialer struct {
-	tun        proxy.Client
+	tun        router.Client
 	server     *net.TCPListener
 	serverAddr *net.TCPAddr
 }
 
-func newDialer(tun proxy.Client) (*dialer, error) {
+func newDialer(tun router.Client) (*dialer, error) {
 	server, err := net.ListenTCP("tcp", &net.TCPAddr{
 		IP:   net.IPv4zero,
 		Port: 0,
@@ -91,7 +91,7 @@ func (d *dialer) Dial(network, address string) (net.Conn, error) {
 	case err := <-errChannel:
 		return nil, err
 	case serverConn := <-connChannel:
-		if err := d.tun.ProxyConnection(proxy.NewEndpoint(network, address), serverConn); err != nil {
+		if err := d.tun.HandleConnection(router.NewEndpoint(network, address), serverConn); err != nil {
 			fmt.Println(err)
 		}
 	}

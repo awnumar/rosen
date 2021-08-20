@@ -1,4 +1,4 @@
-package proxy
+package router
 
 import (
 	"encoding/base64"
@@ -14,8 +14,8 @@ const (
 	toConnChannelBufferSize    = 4096
 )
 
-// Proxy is a black-box structure that will proxy data between the caller and multiple connections.
-type Proxy struct {
+// Router is a black-box structure that will route data between the caller and multiple connections.
+type Router struct {
 	fromConns chan Packet
 	handlers  *sync.Map // string => *pipe
 }
@@ -25,23 +25,23 @@ type pipe struct {
 	close  uint32
 }
 
-// NewProxy initialises a new Proxy object.
-func NewProxy() *Proxy {
-	return &Proxy{
+// NewRouter initialises a new Router object.
+func NewRouter() *Router {
+	return &Router{
 		fromConns: make(chan Packet, fromConnsChannelBufferSize),
 		handlers:  &sync.Map{},
 	}
 }
 
-// ProxyConnection will start handlers for a connection that wishes to talk to a given endpoint.
+// RouterConnection will start handlers for a connection that wishes to talk to a given endpoint.
 // If conn == nil, a connection to the given endpoint will be opened.
 // Otherwise, a packet containing instructions to open a connection is sent on the p.fromConns channel.
-func (p *Proxy) ProxyConnection(dest Endpoint, conn net.Conn) (err error) {
+func (p *Router) HandleConnection(dest Endpoint, conn net.Conn) (err error) {
 	id := base64.RawStdEncoding.EncodeToString(frand.Bytes(16))
-	return p.proxyConnection(id, dest, conn)
+	return p.handleConnection(id, dest, conn)
 }
 
-func (p *Proxy) proxyConnection(id string, dest Endpoint, conn net.Conn) (err error) {
+func (p *Router) handleConnection(id string, dest Endpoint, conn net.Conn) (err error) {
 	if conn == nil {
 		conn, err = net.Dial(dest.Network, dest.Address)
 		if err != nil {
@@ -101,14 +101,14 @@ func (p *Proxy) proxyConnection(id string, dest Endpoint, conn net.Conn) (err er
 }
 
 // Ingest takes a list of packets and handles them, forwarding data to the right handlers.
-func (p *Proxy) Ingest(data []Packet) {
+func (p *Router) Ingest(data []Packet) {
 	for i := range data {
 		id := data[i].ID
 
 		pipeInterface, exists := p.handlers.Load(id)
 		if !exists {
 			if data[i].NewConnection() {
-				p.proxyConnection(data[i].ID, data[i].Dest, nil)
+				p.handleConnection(data[i].ID, data[i].Dest, nil)
 			}
 			continue
 		}
@@ -125,13 +125,13 @@ func (p *Proxy) Ingest(data []Packet) {
 }
 
 // QueueLen returns the number of packets waiting on the aggregate channel of data from connections.
-func (p *Proxy) QueueLen() int {
+func (p *Router) QueueLen() int {
 	return len(p.fromConns)
 }
 
 // Fill tries to fill provided buffer with waiting items from the connections' outbound queue.
 // It returns the number of packets written.
-func (p *Proxy) Fill(buffer []Packet) int {
+func (p *Router) Fill(buffer []Packet) int {
 	size := p.QueueLen()
 	if size > len(buffer) {
 		size = len(buffer)

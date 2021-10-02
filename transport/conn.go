@@ -38,17 +38,16 @@ func (s *SecureConn) Read(b []byte) (int, error) {
 	s.readMutex.Lock()
 	defer s.readMutex.Unlock()
 
-	// todo: check if there is data in the buffer
-	// select {
-	// case buffered := <-s.readBuffer:
-	// 	_ = buffered
-	// default:
+	select {
+	case buffered := <-s.readBuffer:
+		_ = buffered
+	default:
 
-	// }
+	}
 
 	ciphertext, err := readPayload(s.conn)
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 
 	data, err := crypto.Decrypt(ciphertext, s.key)

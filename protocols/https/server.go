@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/awnumar/rosen/lib"
-	"github.com/awnumar/rosen/lib/config"
+	"github.com/awnumar/rosen/config"
+	"github.com/awnumar/rosen/crypto"
 	"github.com/awnumar/rosen/router"
 )
 
@@ -92,7 +92,7 @@ func NewServerWithCustomHandlers(conf config.Configuration, authenticated http.H
 
 // Start launches the server.
 func (s *Server) Start() error {
-	certReloader, err := lib.GetCertificate(
+	certReloader, err := crypto.GetCertificate(
 		s.conf["hostname"],
 		s.conf["email"],
 		func() {

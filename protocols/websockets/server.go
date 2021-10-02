@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/awnumar/rosen/lib"
-	"github.com/awnumar/rosen/lib/config"
+	"github.com/awnumar/rosen/config"
+	"github.com/awnumar/rosen/crypto"
 	"github.com/awnumar/rosen/protocols/https"
 
 	"github.com/gorilla/websocket"
@@ -80,12 +80,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		plaintext, err := lib.Ae_decrypt(b, key)
+		plaintext, err := crypto.Decrypt(b, key)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-
+		_ = plaintext
 	}
 }
 

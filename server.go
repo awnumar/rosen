@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 
-	"github.com/awnumar/rosen/lib/config"
+	"github.com/awnumar/rosen/config"
 	"github.com/awnumar/rosen/protocols/https"
 	"github.com/awnumar/rosen/router"
 )

@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/awnumar/rosen/lib"
-	"github.com/awnumar/rosen/lib/config"
+	"github.com/awnumar/rosen/config"
+	"github.com/awnumar/rosen/crypto"
 	"github.com/awnumar/rosen/router"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -29,7 +29,7 @@ type Client struct {
 
 // NewClient returns a new HTTPS client.
 func NewClient(conf config.Configuration) (*Client, error) {
-	trustPool, err := lib.TrustedCertPool(conf["pinRootCA"])
+	trustPool, err := crypto.TrustedCertPool(conf["pinRootCA"])
 	if err != nil {
 		return nil, err
 	}

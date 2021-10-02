@@ -24,9 +24,29 @@ This package implements a modular framework for proxies that encapsulate traffic
 
 Requires Go version 1.16 or above.
 
+Installation will build the package and install it into `$GOPATH/bin`.
+
 ```
-go get github.com/awnumar/rosen
+git clone github.com/awnumar/rosen
+cd rosen
+go install
 ```
+
+You can now run Rosen with the `rosen` command. For this to work `$GOPATH/bin` must be in your `PATH`.
+
+If you just need a standalone binary, instead of `go install` run:
+
+```
+go build
+```
+
+or to cross compile (for example):
+
+```
+env GOOS=windows GOARCH=amd64 go build
+```
+
+`env` is a Unix command that temporarily sets environment variables, syntax may differ for other operating systems. A full list of supported `GOOS` and `GOARCH` values is available [here](https://golang.org/doc/install/source#environment).
 
 ### Usage
 

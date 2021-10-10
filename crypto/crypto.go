@@ -6,6 +6,8 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
+const Overhead = chacha20poly1305.NonceSizeX + chacha20poly1305.Overhead
+
 func Encrypt(plaintext, key []byte) ([]byte, error) {
 	cipher, err := chacha20poly1305.NewX(key)
 	if err != nil {

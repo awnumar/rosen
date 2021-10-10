@@ -14,23 +14,56 @@ type SecureConn struct {
 	key  []byte
 	conn io.ReadWriter
 
-	readMutex  *sync.Mutex
-	writeMutex *sync.Mutex
+	readPayloads chan *payload // holds some data chunks ready for Read
+	readBuffer   []byte        // buffer Read uses if caller's buffer is too small
 
-	readBuffer chan []byte
+	readMutex  *sync.Mutex // syncs all access to readBuffer
+	writeMutex *sync.Mutex // syncs writes to conn
 }
+
+type payload struct {
+	data []byte
+	err  error
+}
+
+const overhead = crypto.Overhead + binary.MaxVarintLen64
 
 func SecureConnection(conn io.ReadWriter) (*SecureConn, error) {
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return nil, err
 	}
+
+	readPayloads := make(chan *payload, 2)
+
+	go func() {
+		for {
+			ciphertext, err := readPayload(conn)
+			if err != nil {
+				readPayloads <- &payload{err: err} // enhancement: reconnect on broken pipe
+				close(readPayloads)
+				return
+			}
+
+			data, err := crypto.Decrypt(ciphertext, key)
+			if err != nil {
+				fmt.Println(ciphertext)
+				readPayloads <- &payload{err: err} // key is wrong or authentication failed
+				close(readPayloads)
+				return
+			}
+
+			// blocks if the channel is full
+			readPayloads <- &payload{data: data}
+		}
+	}()
+
 	return &SecureConn{
-		key:        key,
-		conn:       conn,
-		readMutex:  &sync.Mutex{},
-		writeMutex: &sync.Mutex{},
-		readBuffer: make(chan []byte, 1),
+		key:          key,
+		conn:         conn,
+		readPayloads: readPayloads,
+		readMutex:    &sync.Mutex{},
+		writeMutex:   &sync.Mutex{},
 	}, nil
 }
 
@@ -38,30 +71,43 @@ func (s *SecureConn) Read(b []byte) (int, error) {
 	s.readMutex.Lock()
 	defer s.readMutex.Unlock()
 
+	ptr := 0
+	if len(s.readBuffer) > 0 {
+		n := copy(b, s.readBuffer)
+		if n == len(b) { // filled b
+			// so len(b) <= len(readBuffer)
+			if len(b) < len(s.readBuffer) {
+				// leftover data in the buffer
+				s.readBuffer = s.readBuffer[n:]
+			}
+			return n, nil
+		}
+		// n > len(b) or n < len(b)
+		// n cannot be more than len(b)
+		// therefore, n < len(b)
+		// since n is minimum of len(b) and len(readBuffer),
+		// n == len(readBuffer)
+		// therefore, emptied buffer and didn't fill b
+		ptr = n
+	}
+
 	select {
-	case buffered := <-s.readBuffer:
-		_ = buffered
+	case payload, ok := <-s.readPayloads:
+		if payload.err != nil {
+			return 0, payload.err
+		}
+
+		if !ok {
+			return 0, fmt.Errorf("error: connection closed")
+		}
+
+		n := copy(b[ptr:], payload.data)
+		s.readBuffer = payload.data[n:]
+		return ptr + n, nil
+
 	default:
-
+		return 0, nil
 	}
-
-	ciphertext, err := readPayload(s.conn)
-	if err != nil {
-		return 0, err
-	}
-
-	data, err := crypto.Decrypt(ciphertext, s.key)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(b) < len(data) {
-		n := copy(b, data)
-		s.readBuffer <- data[n:]
-		return n, nil
-	}
-
-	return copy(b, data), nil
 }
 
 func (s *SecureConn) Write(b []byte) (int, error) {
@@ -73,7 +119,12 @@ func (s *SecureConn) Write(b []byte) (int, error) {
 		return 0, err
 	}
 
-	return writePayload(s.conn, ciphertext)
+	n, err := writePayload(s.conn, ciphertext)
+	if err != nil {
+		return 0, err
+	}
+
+	return n - overhead, nil
 }
 
 func readPayload(conn io.Reader) ([]byte, error) {
@@ -93,10 +144,7 @@ func readPayload(conn io.Reader) ([]byte, error) {
 			return nil, fmt.Errorf("length of buffer cannot be larger than 64 bits")
 		}
 	}
-	if length == 0 {
-		// empty message? return error for now
-		return nil, fmt.Errorf("zero length message")
-	}
+	fmt.Println(length)
 	data := make([]byte, length)
 	if _, err := io.ReadFull(conn, data); err != nil {
 		return nil, err

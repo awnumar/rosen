@@ -6,69 +6,72 @@ import (
 	"net"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/matryer/is"
 	"lukechampine.com/frand"
 )
 
 func TestReadWriteSecureConn(t *testing.T) {
+	is := is.New(t)
+
 	A, B, err := setupLocalConn()
-	require.NoError(t, err)
+	is.NoErr(err)
 	defer A.Close()
 	defer B.Close()
 
 	key := frand.Bytes(32)
 
 	sA, err := SecureConnection(A, key)
-	require.NoError(t, err)
+	is.NoErr(err)
 	sB, err := SecureConnection(B, key)
-	require.NoError(t, err)
+	is.NoErr(err)
 
 	refData := make([]byte, 0)
 
 	for i := 0; i < 4; i++ {
 		data := frand.Bytes(frand.Intn(4096))
 		_, err = sA.Write(data)
-		require.NoError(t, err)
+		is.NoErr(err)
 		refData = append(refData, data...)
 	}
 
 	readData := make([]byte, len(refData))
 	_, err = io.ReadFull(sB, readData)
-	require.NoError(t, err)
+	is.NoErr(err)
 
-	require.True(t, bytes.Equal(refData, readData))
+	is.True(bytes.Equal(refData, readData))
 }
 
 func TestReadWritePayload(t *testing.T) {
+	is := is.New(t)
+
 	A, B, err := setupLocalConn()
-	require.NoError(t, err)
+	is.NoErr(err)
 	defer A.Close()
 	defer B.Close()
 
 	key := frand.Bytes(32)
 
 	sA, err := SecureConnection(A, key)
-	require.NoError(t, err)
+	is.NoErr(err)
 	sB, err := SecureConnection(B, key)
-	require.NoError(t, err)
+	is.NoErr(err)
 
 	refData := make([]byte, 0)
 
 	for i := 0; i < 4; i++ {
 		data := frand.Bytes(frand.Intn(4096))
-		require.NoError(t, sA.writePayload(data))
+		is.NoErr(sA.writePayload(data))
 		refData = append(refData, data...)
 	}
 
 	readData := make([]byte, 0)
 	for i := 0; i < 4; i++ {
 		data, err := sB.readPayload()
-		require.NoError(t, err)
+		is.NoErr(err)
 		readData = append(readData, data...)
 	}
 
-	assert.Equal(t, refData, readData)
+	is.Equal(refData, readData)
 }
 
 func setupLocalConn() (*net.TCPConn, *net.TCPConn, error) {

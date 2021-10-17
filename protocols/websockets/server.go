@@ -66,40 +66,5 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendErrChan := make(chan error) // to client
-	go func() {
-		buffer := make([]router.Packet, bufferSize)
-		for {
-			size := s.router.Fill(buffer)
-			if err := tunnel.Send(buffer[:size]); err != nil {
-				sendErrChan <- err
-				return
-			}
-		}
-	}()
-
-	recvErrChan := make(chan error) // from client
-	go func() {
-		for {
-			data, err := tunnel.Recv()
-			if err != nil {
-				recvErrChan <- err
-				return
-			}
-			s.router.Ingest(data)
-		}
-	}()
-
-	select {
-	case err := <-sendErrChan:
-		close(sendErrChan)
-		close(recvErrChan)
-		log.Println(err)
-		return
-	case err := <-recvErrChan:
-		close(sendErrChan)
-		close(recvErrChan)
-		log.Println(err)
-		return
-	}
+	log.Println(tunnel.ProxyWithRouter(s.router).Error())
 }

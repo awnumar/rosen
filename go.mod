@@ -9,7 +9,7 @@ require (
 	github.com/foomo/simplecert v1.8.3
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-retryablehttp v0.7.0
-	github.com/stretchr/testify v1.7.0
+	github.com/matryer/is v1.4.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	lukechampine.com/frand v1.4.2
 )
@@ -88,6 +88,7 @@ require (
 	github.com/sacloud/libsacloud v1.36.2 // indirect
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/transip/gotransip/v6 v6.5.0 // indirect
 	github.com/vultr/govultr v1.1.1 // indirect
 	go.opencensus.io v0.22.5 // indirect

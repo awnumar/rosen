@@ -4,31 +4,33 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/awnumar/rosen/router"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/matryer/is"
 	"lukechampine.com/frand"
+
+	"github.com/awnumar/rosen/router"
 )
 
 func TestReadWriteTunnel(t *testing.T) {
+	is := is.New(t)
+
 	A, B, err := setupLocalConn()
-	require.NoError(t, err)
+	is.NoErr(err)
 	defer A.Close()
 	defer B.Close()
 
 	key := frand.Bytes(32)
 
 	tA, err := NewTunnel(A, key)
-	require.NoError(t, err)
+	is.NoErr(err)
 	tB, err := NewTunnel(B, key)
-	require.NoError(t, err)
+	is.NoErr(err)
 
 	refData := randomPacketSeq(100)
 
-	require.NoError(t, tA.Send(refData))
+	is.NoErr(tA.Send(refData))
 
 	readData, err := tB.Recv()
-	require.NoError(t, err)
+	is.NoErr(err)
 
 	// ugly hack since assert doesn't consider nil and len(0) to be equal
 	for i := range readData {
@@ -37,8 +39,7 @@ func TestReadWriteTunnel(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, len(refData), len(readData))
-	assert.Equal(t, refData, readData)
+	is.Equal(refData, readData)
 }
 
 func randomPacketSeq(length int) (packets []router.Packet) {

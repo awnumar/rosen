@@ -36,24 +36,24 @@ func NewRouter() *Router {
 // RouterConnection will start handlers for a connection that wishes to talk to a given endpoint.
 // If conn == nil, a connection to the given endpoint will be opened.
 // Otherwise, a packet containing instructions to open a connection is sent on the p.fromConns channel.
-func (p *Router) HandleConnection(dest Endpoint, conn net.Conn) (err error) {
+func (r *Router) HandleConnection(dest Endpoint, conn net.Conn) (err error) {
 	id := base64.RawStdEncoding.EncodeToString(frand.Bytes(16))
-	return p.handleConnection(id, dest, conn)
+	return r.handleConnection(id, dest, conn)
 }
 
-func (p *Router) handleConnection(id string, dest Endpoint, conn net.Conn) (err error) {
+func (r *Router) handleConnection(id string, dest Endpoint, conn net.Conn) (err error) {
 	if conn == nil {
 		conn, err = net.Dial(dest.Network, dest.Address)
 		if err != nil {
 			return err
 		}
 	} else {
-		p.fromConns <- NewPacket(id, dest)
+		r.fromConns <- NewPacket(id, dest)
 	}
 
 	toConn := make(chan Packet, toConnChannelBufferSize)
 	pipe := &pipe{toConn: toConn}
-	p.handlers.Store(id, pipe)
+	r.handlers.Store(id, pipe)
 
 	go func() {
 		for message := range toConn {
@@ -68,7 +68,7 @@ func (p *Router) handleConnection(id string, dest Endpoint, conn net.Conn) (err 
 
 			_, err = conn.Write(message.Data)
 			if err != nil {
-				p.fromConns <- ClosePacket(message.ID)
+				r.fromConns <- ClosePacket(message.ID)
 				break
 			}
 		}
@@ -86,10 +86,10 @@ func (p *Router) handleConnection(id string, dest Endpoint, conn net.Conn) (err 
 		for {
 			n, err := conn.Read(readBuf[:])
 			if n > 0 {
-				p.fromConns <- DataPacket(id, copyBuf(readBuf[:n]))
+				r.fromConns <- DataPacket(id, copyBuf(readBuf[:n]))
 			}
 			if err != nil {
-				p.fromConns <- ClosePacket(id)
+				r.fromConns <- ClosePacket(id)
 				break
 			}
 		}
@@ -101,21 +101,21 @@ func (p *Router) handleConnection(id string, dest Endpoint, conn net.Conn) (err 
 }
 
 // Ingest takes a list of packets and handles them, forwarding data to the right handlers.
-func (p *Router) Ingest(data []Packet) {
+func (r *Router) Ingest(data []Packet) {
 	for i := range data {
 		id := data[i].ID
 
-		pipeInterface, exists := p.handlers.Load(id)
+		pipeInterface, exists := r.handlers.Load(id)
 		if !exists {
 			if data[i].NewConnection() {
-				p.handleConnection(data[i].ID, data[i].Dest, nil)
+				r.handleConnection(data[i].ID, data[i].Dest, nil)
 			}
 			continue
 		}
 		pipe := pipeInterface.(*pipe) // will panic if can't assert type
 
 		if atomic.LoadUint32(&pipe.close) == 1 {
-			p.handlers.Delete(id)
+			r.handlers.Delete(id)
 			close(pipe.toConn)
 			continue
 		}
@@ -125,19 +125,19 @@ func (p *Router) Ingest(data []Packet) {
 }
 
 // QueueLen returns the number of packets waiting on the aggregate channel of data from connections.
-func (p *Router) QueueLen() int {
-	return len(p.fromConns)
+func (r *Router) QueueLen() int {
+	return len(r.fromConns)
 }
 
 // Fill tries to fill provided buffer with waiting items from the connections' outbound queue.
 // It returns the number of packets written.
-func (p *Router) Fill(buffer []Packet) int {
-	size := p.QueueLen()
+func (r *Router) Fill(buffer []Packet) int {
+	size := r.QueueLen()
 	if size > len(buffer) {
 		size = len(buffer)
 	}
 	for i := 0; i < size; i++ {
-		buffer[i] = <-p.fromConns
+		buffer[i] = <-r.fromConns
 	}
 	return size
 }

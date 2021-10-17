@@ -13,8 +13,8 @@ type Tunnel struct {
 	recv *gob.Decoder
 }
 
-func NewTunnel(conn io.ReadWriter) (*Tunnel, error) {
-	secureConn, err := SecureConnection(conn)
+func NewTunnel(conn io.ReadWriter, key []byte) (*Tunnel, error) {
+	secureConn, err := SecureConnection(conn, key)
 	if err != nil {
 		return nil, err
 	}

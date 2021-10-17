@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"bytes"
 	"io"
 	"net"
 	"testing"
@@ -10,54 +11,73 @@ import (
 	"lukechampine.com/frand"
 )
 
-func TestSecureConnReadWrite(t *testing.T) {
-	listener, err := net.ListenTCP("tcp", &net.TCPAddr{})
+func TestReadWriteSecureConn(t *testing.T) {
+	A, B, err := setupLocalConn()
 	require.NoError(t, err)
-	defer listener.Close()
+	defer A.Close()
+	defer B.Close()
 
-	testReadWritePayload(t, listener)
-	testReadWriteSecureConn(t, listener)
-}
+	key := frand.Bytes(32)
 
-func testReadWritePayload(t *testing.T, listener *net.TCPListener) {
-	A, B := setupLocalConn(t, listener)
-	defer func() {
-		A.Close()
-		B.Close()
-	}()
-
-}
-
-func testReadWriteSecureConn(t *testing.T, listener *net.TCPListener) {
-	A, B := setupLocalConn(t, listener)
-	defer func() {
-		A.Close()
-		B.Close()
-	}()
-
-	secureConnA, err := SecureConnection(A)
+	sA, err := SecureConnection(A, key)
 	require.NoError(t, err)
-	secureConnB, err := SecureConnection(B)
+	sB, err := SecureConnection(B, key)
 	require.NoError(t, err)
 
-	var dataRef []byte
+	refData := make([]byte, 0)
 
 	for i := 0; i < 4; i++ {
-		data := frand.Bytes(frand.Intn(10000))
-		dataRef = append(dataRef, data...)
-		n, err := secureConnA.Write(data)
+		data := frand.Bytes(frand.Intn(4096))
+		_, err = sA.Write(data)
 		require.NoError(t, err)
-		assert.Equal(t, len(data), n)
+		refData = append(refData, data...)
 	}
 
-	readData := make([]byte, len(dataRef))
-	n, err := io.ReadFull(secureConnB, readData)
+	readData := make([]byte, len(refData))
+	_, err = io.ReadFull(sB, readData)
 	require.NoError(t, err)
-	assert.Equal(t, len(readData), n)
-	assert.Equal(t, dataRef, readData)
+
+	require.True(t, bytes.Equal(refData, readData))
 }
 
-func setupLocalConn(t *testing.T, listener *net.TCPListener) (serverConn, clientConn *net.TCPConn) {
+func TestReadWritePayload(t *testing.T) {
+	A, B, err := setupLocalConn()
+	require.NoError(t, err)
+	defer A.Close()
+	defer B.Close()
+
+	key := frand.Bytes(32)
+
+	sA, err := SecureConnection(A, key)
+	require.NoError(t, err)
+	sB, err := SecureConnection(B, key)
+	require.NoError(t, err)
+
+	refData := make([]byte, 0)
+
+	for i := 0; i < 4; i++ {
+		data := frand.Bytes(frand.Intn(4096))
+		require.NoError(t, sA.writePayload(data))
+		refData = append(refData, data...)
+	}
+
+	readData := make([]byte, 0)
+	for i := 0; i < 4; i++ {
+		data, err := sB.readPayload()
+		require.NoError(t, err)
+		readData = append(readData, data...)
+	}
+
+	assert.Equal(t, refData, readData)
+}
+
+func setupLocalConn() (*net.TCPConn, *net.TCPConn, error) {
+	listener, err := net.ListenTCP("tcp", &net.TCPAddr{})
+	if err != nil {
+		return nil, nil, err
+	}
+	defer listener.Close()
+
 	connChannel := make(chan *net.TCPConn)
 	errChannel := make(chan error)
 	defer close(connChannel)
@@ -72,14 +92,15 @@ func setupLocalConn(t *testing.T, listener *net.TCPListener) (serverConn, client
 		}
 	}()
 
-	clientConn, err := net.DialTCP("tcp", nil, listener.Addr().(*net.TCPAddr))
-	require.NoError(t, err)
+	A, err := net.DialTCP("tcp", nil, listener.Addr().(*net.TCPAddr))
+	if err != nil {
+		return nil, nil, err
+	}
 
 	select {
 	case err := <-errChannel:
-		require.NoError(t, err)
-		return
-	case serverConn := <-connChannel:
-		return serverConn, clientConn
+		return nil, nil, err
+	case B := <-connChannel:
+		return A, B, nil
 	}
 }

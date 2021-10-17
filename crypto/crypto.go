@@ -1,36 +1,39 @@
 package crypto
 
 import (
+	"crypto/cipher"
 	"crypto/rand"
+	"fmt"
 
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
-const Overhead = chacha20poly1305.NonceSizeX + chacha20poly1305.Overhead
+const Overhead = chacha20poly1305.Overhead + chacha20poly1305.NonceSizeX
 
-func Encrypt(plaintext, key []byte) ([]byte, error) {
+type Cipher struct {
+	cipher.AEAD
+}
+
+func NewCipher(key []byte) (*Cipher, error) {
 	cipher, err := chacha20poly1305.NewX(key)
 	if err != nil {
 		return nil, err
 	}
+	return &Cipher{cipher}, nil
+}
 
-	nonce := make([]byte, cipher.NonceSize(), cipher.NonceSize()+len(plaintext)+cipher.Overhead())
+func (c *Cipher) Encrypt(plaintext []byte) ([]byte, error) {
+	nonce := make([]byte, c.NonceSize(), len(plaintext)+Overhead)
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-
-	return cipher.Seal(nonce, nonce, plaintext, nil), nil
+	ciphertext := c.Seal(nonce, nonce, plaintext, nil)
+	return ciphertext, nil
 }
 
-func Decrypt(ciphertext, key []byte) ([]byte, error) {
-	cipher, err := chacha20poly1305.NewX(key)
-	if err != nil {
-		return nil, err
+func (c *Cipher) Decrypt(ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < c.NonceSize() {
+		return nil, fmt.Errorf("error: ciphertext too short")
 	}
-
-	if len(ciphertext) < cipher.NonceSize() {
-		return nil, err
-	}
-
-	return cipher.Open(nil, ciphertext[:cipher.NonceSize()], ciphertext[cipher.NonceSize():], nil)
+	return c.Open(nil, ciphertext[:c.NonceSize()], ciphertext[c.NonceSize():], nil)
 }

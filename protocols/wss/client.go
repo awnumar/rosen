@@ -59,6 +59,6 @@ func NewClient(conf config.Configuration) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) ProxyConnection(dest router.Endpoint, conn net.Conn) error {
+func (c *Client) HandleConnection(dest router.Endpoint, conn net.Conn) error {
 	return c.r.HandleConnection(dest, conn)
 }

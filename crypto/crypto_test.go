@@ -14,7 +14,7 @@ func TestCipher(t *testing.T) {
 	cipher, err := NewCipher(frand.Bytes(32))
 	is.NoErr(err)
 
-	for i := 1; i <= 8; i++ {
+	for i := 0; i < 1024; i++ {
 		data := frand.Bytes(frand.Intn(4096))
 
 		ciphertext, err := cipher.Encrypt(data)

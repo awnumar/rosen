@@ -27,8 +27,7 @@ func (c *Cipher) Encrypt(plaintext []byte) ([]byte, error) {
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	ciphertext := c.Seal(nonce, nonce, plaintext, nil)
-	return ciphertext, nil
+	return c.Seal(nonce, nonce, plaintext, nil), nil
 }
 
 func (c *Cipher) Decrypt(ciphertext []byte) ([]byte, error) {

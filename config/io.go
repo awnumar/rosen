@@ -31,7 +31,7 @@ func writeConfig(config Configuration) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := ioutil.WriteFile(filename, data, 644); err != nil {
+	if err := ioutil.WriteFile(filename, data, 0644); err != nil {
 		return filename, err
 	}
 	return filename, nil

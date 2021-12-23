@@ -1,7 +1,10 @@
 package wss
 
 import (
+	"bytes"
 	"crypto/tls"
+	"fmt"
+	"io"
 	"log"
 	"net"
 
@@ -33,8 +36,14 @@ func NewClient(conf config.Configuration) (*Client, error) {
 		r: router.NewRouter(),
 	}
 
-	wssConn, _, err := c.wssClient.Dial(conf["proxyAddr"], nil)
+	wssConn, resp, err := c.wssClient.Dial(conf["proxyAddr"], nil)
 	if err != nil {
+		if resp != nil {
+			body := bytes.Buffer{}
+			io.Copy(&body, resp.Body)
+			fmt.Println("body:", body.String())
+			fmt.Println(resp.Status, resp.StatusCode)
+		}
 		return nil, err
 	}
 

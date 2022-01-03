@@ -7,7 +7,7 @@ import (
 
 	"github.com/awnumar/rosen/config"
 	"github.com/awnumar/rosen/protocols/https"
-	"github.com/awnumar/rosen/protocols/wss"
+	"github.com/awnumar/rosen/protocols/tcp"
 	"github.com/awnumar/rosen/router"
 
 	"github.com/eahydra/socks"
@@ -19,8 +19,8 @@ func client(conf config.Configuration) (err error) {
 	switch conf["protocol"] {
 	case "":
 		return errors.New("protocol must be specified in config file")
-	case "wss":
-		client, err = wss.NewClient(conf)
+	case "tcp":
+		client, err = tcp.NewClient()
 	case "https":
 		client, err = https.NewClient(conf)
 	default:

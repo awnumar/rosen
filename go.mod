@@ -10,7 +10,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/matryer/is v1.4.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa
 	lukechampine.com/frand v1.4.2
 )
 

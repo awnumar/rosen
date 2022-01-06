@@ -7,49 +7,26 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/awnumar/rosen/config"
-	"github.com/awnumar/rosen/protocols/https"
-	"github.com/awnumar/rosen/router"
-	"github.com/awnumar/rosen/transport"
 )
 
-const bufferSize = 4096
-
-type Server struct {
-	key    []byte
-	conf   config.Configuration
-	s      *https.Server
-	router *router.Router
-}
+type Server struct{}
 
 var s *Server
 
-func NewServer(conf config.Configuration) (*Server, error) {
-	s, err := https.NewServerWithCustomHandlers(conf, handler, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := config.DecodeKeyString(conf["authToken"])
-	if err != nil {
-		return nil, err
-	}
-
-	return &Server{
-		key:    key,
-		conf:   conf,
-		s:      s,
-		router: router.NewRouter(),
-	}, nil
-}
-
-func (s *Server) Start() error {
-	return s.s.Start()
-}
+const bufferSize = 4096
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  bufferSize,
 	WriteBufferSize: bufferSize,
 	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+func NewServer(conf config.Configuration) (*Server, error) {
+	return &Server{}, nil
+}
+
+func (s *Server) Start() error {
+	return http.ListenAndServe("127.0.0.1:23579", http.HandlerFunc(handler))
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -60,11 +37,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer ws.Close()
 
-	tunnel, err := transport.NewTunnel(ws.UnderlyingConn(), s.key)
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	conn := ws.UnderlyingConn()
 
-	log.Println(tunnel.ProxyWithRouter(s.router).Error())
 }

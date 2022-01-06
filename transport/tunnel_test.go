@@ -32,7 +32,7 @@ func TestReadWriteTunnel(t *testing.T) {
 	readData, err := tB.Recv()
 	is.NoErr(err)
 
-	// ugly hack since assert doesn't consider nil and len(0) to be equal
+	// ugly hack since testing library doesn't consider nil and len(0) slices to be equivalent
 	for i := range readData {
 		if len(readData[i].Data) == 0 {
 			readData[i].Data = nil

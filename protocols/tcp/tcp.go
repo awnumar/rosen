@@ -5,7 +5,7 @@ import (
 	"net"
 
 	"github.com/awnumar/rosen/router"
-	"github.com/awnumar/rosen/transport"
+	"github.com/awnumar/rosen/tunnel"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -49,7 +49,7 @@ func NewClient() (*Client, error) {
 
 	go func(conn *net.TCPConn) {
 		for {
-			tunnel, err := transport.NewTunnel(conn, key)
+			tunnel, err := tunnel.New(conn, key)
 			if err != nil {
 				// todo: redial and retry; handle
 				fmt.Println("error creating tunnel:", err)
@@ -83,7 +83,7 @@ func (s *Server) Start() error {
 		}
 
 		go func(conn *net.TCPConn) {
-			tunnel, err := transport.NewTunnel(conn, key)
+			tunnel, err := tunnel.New(conn, key)
 			if err != nil {
 				fmt.Println(err)
 				return

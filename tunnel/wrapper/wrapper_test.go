@@ -1,4 +1,4 @@
-package transport
+package wrapper
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"lukechampine.com/frand"
 )
 
-func TestReadWriteSecureConn(t *testing.T) {
+func TestReadWriteWrapper(t *testing.T) {
 	is := is.New(t)
 
 	A, B, err := setupLocalConn()
@@ -20,9 +20,9 @@ func TestReadWriteSecureConn(t *testing.T) {
 
 	key := frand.Bytes(32)
 
-	sA, err := SecureConnection(A, key)
+	sA, err := New(A, key)
 	is.NoErr(err)
-	sB, err := SecureConnection(B, key)
+	sB, err := New(B, key)
 	is.NoErr(err)
 
 	refData := make([]byte, 0)
@@ -51,9 +51,9 @@ func TestReadWritePayload(t *testing.T) {
 
 	key := frand.Bytes(32)
 
-	sA, err := SecureConnection(A, key)
+	sA, err := New(A, key)
 	is.NoErr(err)
-	sB, err := SecureConnection(B, key)
+	sB, err := New(B, key)
 	is.NoErr(err)
 
 	refData := make([]byte, 0)

@@ -1,4 +1,5 @@
-package transport
+// package wrapper implements a wrapper for an io.ReadWriter that encrypts and authenticates data before exchanging data with the underlying io.ReadWriter
+package wrapper
 
 import (
 	"encoding/binary"
@@ -9,7 +10,7 @@ import (
 	"github.com/awnumar/rosen/crypto"
 )
 
-type SecureConn struct {
+type Wrapper struct {
 	conn   io.ReadWriter
 	cipher *crypto.Cipher
 
@@ -19,13 +20,13 @@ type SecureConn struct {
 	writeMutex *sync.Mutex
 }
 
-func SecureConnection(conn io.ReadWriter, key []byte) (*SecureConn, error) {
+func New(conn io.ReadWriter, key []byte) (*Wrapper, error) {
 	cipher, err := crypto.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SecureConn{
+	return &Wrapper{
 		conn:       conn,
 		cipher:     cipher,
 		readMutex:  &sync.Mutex{},
@@ -33,7 +34,7 @@ func SecureConnection(conn io.ReadWriter, key []byte) (*SecureConn, error) {
 	}, nil
 }
 
-func (s *SecureConn) Read(b []byte) (int, error) {
+func (s *Wrapper) Read(b []byte) (int, error) {
 	s.readMutex.Lock()
 	defer s.readMutex.Unlock()
 
@@ -63,7 +64,7 @@ func (s *SecureConn) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-func (s *SecureConn) Write(b []byte) (int, error) {
+func (s *Wrapper) Write(b []byte) (int, error) {
 	s.writeMutex.Lock()
 	defer s.writeMutex.Unlock()
 
@@ -74,7 +75,7 @@ func (s *SecureConn) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (s *SecureConn) readPayload() ([]byte, error) {
+func (s *Wrapper) readPayload() ([]byte, error) {
 	lengthBytes := make([]byte, binary.MaxVarintLen64)
 	if _, err := io.ReadFull(s.conn, lengthBytes); err != nil {
 		return nil, err
@@ -102,7 +103,7 @@ func (s *SecureConn) readPayload() ([]byte, error) {
 	return data, nil
 }
 
-func (s *SecureConn) writePayload(data []byte) error {
+func (s *Wrapper) writePayload(data []byte) error {
 	ciphertext, err := s.cipher.Encrypt(data)
 	if err != nil {
 		return err

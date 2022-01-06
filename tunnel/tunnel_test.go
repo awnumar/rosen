@@ -1,7 +1,8 @@
-package transport
+package tunnel
 
 import (
 	"encoding/base64"
+	"net"
 	"testing"
 
 	"github.com/matryer/is"
@@ -20,9 +21,9 @@ func TestReadWriteTunnel(t *testing.T) {
 
 	key := frand.Bytes(32)
 
-	tA, err := NewTunnel(A, key)
+	tA, err := New(A, key)
 	is.NoErr(err)
-	tB, err := NewTunnel(B, key)
+	tB, err := New(B, key)
 	is.NoErr(err)
 
 	refData := randomPacketSeq(100)
@@ -58,5 +59,39 @@ func randomPacket() router.Packet {
 		},
 		Data: frand.Bytes(frand.Intn(4096)),
 		Type: router.Data,
+	}
+}
+
+func setupLocalConn() (*net.TCPConn, *net.TCPConn, error) {
+	listener, err := net.ListenTCP("tcp", &net.TCPAddr{})
+	if err != nil {
+		return nil, nil, err
+	}
+	defer listener.Close()
+
+	connChannel := make(chan *net.TCPConn)
+	errChannel := make(chan error)
+	defer close(connChannel)
+	defer close(errChannel)
+
+	go func() {
+		conn, err := listener.AcceptTCP()
+		if err != nil {
+			errChannel <- err
+		} else {
+			connChannel <- conn
+		}
+	}()
+
+	A, err := net.DialTCP("tcp", nil, listener.Addr().(*net.TCPAddr))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	select {
+	case err := <-errChannel:
+		return nil, nil, err
+	case B := <-connChannel:
+		return A, B, nil
 	}
 }

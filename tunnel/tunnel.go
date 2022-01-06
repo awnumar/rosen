@@ -1,11 +1,12 @@
-// package transport implements an end to end encrypted tunnel over arbitrary connected reader-writer interfaces.
-package transport
+// package tunnel is a simple wrapper over tunnel/wrapper that allows callers to easily communicate []router.Packet slices over arbitrary io.ReadWriters
+package tunnel
 
 import (
 	"encoding/gob"
 	"io"
 
 	"github.com/awnumar/rosen/router"
+	"github.com/awnumar/rosen/tunnel/wrapper"
 )
 
 type Tunnel struct {
@@ -13,14 +14,14 @@ type Tunnel struct {
 	recv *gob.Decoder
 }
 
-func NewTunnel(conn io.ReadWriter, key []byte) (*Tunnel, error) {
-	secureConn, err := SecureConnection(conn, key)
+func New(conn io.ReadWriter, key []byte) (*Tunnel, error) {
+	wrapper, err := wrapper.New(conn, key)
 	if err != nil {
 		return nil, err
 	}
 	return &Tunnel{
-		send: gob.NewEncoder(secureConn),
-		recv: gob.NewDecoder(secureConn),
+		send: gob.NewEncoder(wrapper),
+		recv: gob.NewDecoder(wrapper),
 	}, nil
 }
 

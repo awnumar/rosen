@@ -7,7 +7,6 @@ require (
 	github.com/eahydra/socks v0.0.0-20191219154456-071591e7aaf0
 	github.com/fatih/color v1.13.0
 	github.com/foomo/simplecert v1.8.3
-	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/matryer/is v1.4.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519

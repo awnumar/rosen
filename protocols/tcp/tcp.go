@@ -38,7 +38,7 @@ func NewClient() (*Client, error) {
 	r := router.NewRouter()
 
 	remoteAddr := &net.TCPAddr{
-		IP:   net.ParseIP("100.96.221.43"),
+		IP:   net.ParseIP("100.80.252.49"),
 		Port: port,
 	}
 
@@ -48,16 +48,13 @@ func NewClient() (*Client, error) {
 	}
 
 	go func(conn *net.TCPConn) {
-		for {
-			tunnel, err := tunnel.New(conn, key)
-			if err != nil {
-				// todo: redial and retry; handle
-				fmt.Println("error creating tunnel:", err)
-				continue
-			}
-			fmt.Println("tunnel.proxywithrouter:", tunnel.ProxyWithRouter(r))
-			// todo: redial and retry
+		tunnel, err := tunnel.New(conn, key)
+		if err != nil {
+			// todo: redial and retry; handle
+			fmt.Println("error creating tunnel:", err)
 		}
+		fmt.Println("tunnel.proxywithrouter:", tunnel.ProxyWithRouter(r))
+		// todo: redial and retry
 	}(conn)
 
 	return &Client{

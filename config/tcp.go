@@ -2,7 +2,6 @@ package config
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/asaskevich/govalidator"
@@ -27,11 +26,7 @@ var tcp = specification{
 			prompt: "Enter the port that the server will listen on.\n> ",
 			process: func(resp string) (string, error) {
 				resp = strings.TrimSpace(resp)
-				port, err := strconv.Atoi(resp)
-				if err != nil {
-					return "", err
-				}
-				if port < 1 || port > 65535 {
+				if !govalidator.IsPort(resp) {
 					return "", errors.New("must be a valid port number in the range 1-65535")
 				}
 				return resp, nil

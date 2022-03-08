@@ -20,7 +20,7 @@ func client(conf config.Configuration) (err error) {
 	case "":
 		return errors.New("protocol must be specified in config file")
 	case "tcp":
-		client, err = tcp.NewClient()
+		client, err = tcp.NewClient(conf)
 	case "https":
 		client, err = https.NewClient(conf)
 	default:

@@ -3,44 +3,59 @@ package tcp
 import (
 	"fmt"
 	"net"
+	"strconv"
 
+	"github.com/awnumar/rosen/config"
 	"github.com/awnumar/rosen/router"
 	"github.com/awnumar/rosen/tunnel"
-	"golang.org/x/crypto/blake2b"
 )
-
-const (
-	port = 23579
-)
-
-var key = func() []byte {
-	k := blake2b.Sum256([]byte("test"))
-	return k[:]
-}()
 
 type Server struct {
-	r *router.Router
+	router *router.Router
+	key    []byte
+	port   int
 }
 
 type Client struct {
-	r          *router.Router
+	router     *router.Router
+	key        []byte
 	remoteAddr *net.TCPAddr
 	remoteConn *net.TCPConn
 }
 
-func NewServer() *Server {
-	return &Server{
-		r: router.NewRouter(),
+func NewServer(conf config.Configuration) (*Server, error) {
+	key, err := config.DecodeKeyString(conf["authToken"])
+	if err != nil {
+		return nil, err
 	}
+	port, err := strconv.Atoi(conf["serverPort"])
+	if err != nil {
+		return nil, err
+	}
+	return &Server{
+		router: router.NewRouter(),
+		key:    key,
+		port:   port,
+	}, nil
 }
 
-func NewClient() (*Client, error) {
-	r := router.NewRouter()
+func NewClient(conf config.Configuration) (*Client, error) {
+	key, err := config.DecodeKeyString(conf["authToken"])
+	if err != nil {
+		return nil, err
+	}
+
+	port, err := strconv.Atoi(conf["serverPort"])
+	if err != nil {
+		return nil, err
+	}
 
 	remoteAddr := &net.TCPAddr{
-		IP:   net.ParseIP("100.80.252.49"),
+		IP:   net.ParseIP(conf["serverAddr"]),
 		Port: port,
 	}
+
+	r := router.NewRouter()
 
 	conn, err := net.DialTCP("tcp", nil, remoteAddr)
 	if err != nil {
@@ -53,12 +68,13 @@ func NewClient() (*Client, error) {
 			// todo: redial and retry; handle
 			fmt.Println("error creating tunnel:", err)
 		}
-		fmt.Println("tunnel.proxywithrouter:", tunnel.ProxyWithRouter(r))
+		fmt.Println("exiting tunnel.proxywithrouter:", tunnel.ProxyWithRouter(r))
 		// todo: redial and retry
 	}(conn)
 
 	return &Client{
-		r:          r,
+		router:     r,
+		key:        key,
 		remoteAddr: remoteAddr,
 		remoteConn: conn,
 	}, nil
@@ -67,7 +83,7 @@ func NewClient() (*Client, error) {
 func (s *Server) Start() error {
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
-		Port: port,
+		Port: s.port,
 	})
 	if err != nil {
 		return err
@@ -80,17 +96,17 @@ func (s *Server) Start() error {
 		}
 
 		go func(conn *net.TCPConn) {
-			tunnel, err := tunnel.New(conn, key)
+			tunnel, err := tunnel.New(conn, s.key)
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
 
-			fmt.Println(tunnel.ProxyWithRouter(s.r))
+			fmt.Println(tunnel.ProxyWithRouter(s.router))
 		}(conn)
 	}
 }
 
 func (c *Client) HandleConnection(dest router.Endpoint, conn net.Conn) error {
-	return c.r.HandleConnection(dest, conn)
+	return c.router.HandleConnection(dest, conn)
 }

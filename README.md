@@ -19,8 +19,8 @@ This package implements a modular framework for proxies that encapsulate traffic
 
 ### Supported protocols
 
-- Encrypted WebSockets
 - HTTPS
+- TCP
 
 ### Installation
 

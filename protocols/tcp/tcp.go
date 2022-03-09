@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/awnumar/rosen/config"
 	"github.com/awnumar/rosen/router"
 	"github.com/awnumar/rosen/tunnel"
@@ -50,8 +51,21 @@ func NewClient(conf config.Configuration) (*Client, error) {
 		return nil, err
 	}
 
+	var serverAddrs []net.IP
+	serverAddr := conf["serverAddr"]
+	if !govalidator.IsIP(serverAddr) {
+		// assume serverAddr is a DNS name
+		ips, err := net.LookupIP(serverAddr)
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to lookup IP for %s: %s", serverAddr, err)
+		}
+		serverAddrs = ips
+	} else {
+		serverAddrs = []net.IP{net.ParseIP(serverAddr)}
+	}
+
 	remoteAddr := &net.TCPAddr{
-		IP:   net.ParseIP(conf["serverAddr"]),
+		IP:   serverAddrs[0],
 		Port: port,
 	}
 

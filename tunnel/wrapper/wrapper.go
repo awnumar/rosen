@@ -97,6 +97,8 @@ func (s *Wrapper) readPayload() ([]byte, error) {
 		return nil, err
 	}
 	data, err := s.cipher.Decrypt(ciphertext)
+	// todo: when server receives data and is unable to decrypt it, we should treat this
+	// as an authentication failure and hang on the connection by reading infinitely
 	if err != nil {
 		return nil, err
 	}

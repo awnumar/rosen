@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/awnumar/rosen/lib"
-	"github.com/awnumar/rosen/protocols/config"
-	"github.com/awnumar/rosen/proxy"
+	"github.com/awnumar/rosen/config"
+	"github.com/awnumar/rosen/crypto"
+	"github.com/awnumar/rosen/router"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"lukechampine.com/frand"
@@ -24,12 +24,12 @@ type Client struct {
 	authToken string
 	remote    string
 	client    *retryablehttp.RoundTripper
-	proxy     *proxy.Proxy
+	router    *router.Router
 }
 
 // NewClient returns a new HTTPS client.
 func NewClient(conf config.Configuration) (*Client, error) {
-	trustPool, err := lib.TrustedCertPool(conf["pinRootCA"])
+	trustPool, err := crypto.TrustedCertPool(conf["pinRootCA"])
 	if err != nil {
 		return nil, err
 	}
@@ -50,20 +50,20 @@ func NewClient(conf config.Configuration) (*Client, error) {
 		client: &retryablehttp.RoundTripper{
 			Client: client,
 		},
-		proxy: proxy.NewProxy(),
+		router: router.NewRouter(),
 	}
 
 	go func(c *Client) {
-		outboundBuffer := make([]proxy.Packet, clientBufferSize)
+		outboundBuffer := make([]router.Packet, clientBufferSize)
 
 		for {
-			size := c.proxy.Fill(outboundBuffer)
+			size := c.router.Fill(outboundBuffer)
 
 			responseData := c.do(outboundBuffer[:size])
 
-			go c.proxy.Ingest(responseData)
+			go c.router.Ingest(responseData)
 
-			if size > 0 || c.proxy.QueueLen() > 0 || len(responseData) > 0 {
+			if size > 0 || c.router.QueueLen() > 0 || len(responseData) > 0 {
 				continue // skip delay
 			}
 
@@ -74,7 +74,7 @@ func NewClient(conf config.Configuration) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) do(data []proxy.Packet) (responseData []proxy.Packet) {
+func (c *Client) do(data []router.Packet) (responseData []router.Packet) {
 	id := base64.RawStdEncoding.EncodeToString(frand.Bytes(16))
 
 	payload, err := json.Marshal(data)
@@ -121,7 +121,7 @@ retry:
 	return
 }
 
-// ProxyConnection handles and proxies a single connection between a local client and the remote server.
-func (c *Client) ProxyConnection(dest proxy.Endpoint, conn net.Conn) error {
-	return c.proxy.ProxyConnection(dest, conn)
+// HandleConnection handles and proxies a single connection between a local client and the remote server.
+func (c *Client) HandleConnection(dest router.Endpoint, conn net.Conn) error {
+	return c.router.HandleConnection(dest, conn)
 }

@@ -1,4 +1,4 @@
-package proxy
+package router
 
 // PacketType gives some information about the state of the connection that a packet belongs to.
 type PacketType int

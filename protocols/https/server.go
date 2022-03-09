@@ -12,27 +12,29 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/awnumar/rosen/lib"
-	"github.com/awnumar/rosen/protocols/config"
-	"github.com/awnumar/rosen/proxy"
+	"github.com/awnumar/rosen/config"
+	"github.com/awnumar/rosen/crypto"
+	"github.com/awnumar/rosen/router"
 )
 
 // Server implements a HTTP tunnel server.
 type Server struct {
-	conf      config.Configuration
-	tlsConfig *tls.Config
-	redirect  *http.Server
-	server    *http.Server
-	cmd       chan string
-	cmdDone   chan struct{}
-	proxy     *proxy.Proxy
-	buffer    []proxy.Packet
-	previous  chan *response
+	conf          config.Configuration
+	tlsConfig     *tls.Config
+	redirect      *http.Server
+	server        *http.Server
+	cmd           chan string
+	cmdDone       chan struct{}
+	router        *router.Router
+	buffer        []router.Packet
+	previous      chan *response
+	authenticated http.HandlerFunc
+	decoy         http.HandlerFunc
 }
 
 type response struct {
 	reqID    string
-	respData []proxy.Packet
+	respData []router.Packet
 }
 
 var s = &Server{}
@@ -52,20 +54,37 @@ func NewServer(conf config.Configuration) (*Server, error) {
 	s = &Server{
 		conf: conf,
 		tlsConfig: &tls.Config{
-			MinVersion:       tls.VersionTLS12,
-			MaxVersion:       tlsMaxVersion,
-			CurvePreferences: []tls.CurveID{tls.X25519},
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tlsMaxVersion,
 		},
-		cmd:      make(chan string),
-		cmdDone:  make(chan struct{}),
-		proxy:    proxy.NewProxy(),
-		buffer:   make([]proxy.Packet, serverBufferSize),
-		previous: make(chan *response, 1),
+		cmd:           make(chan string),
+		cmdDone:       make(chan struct{}),
+		router:        router.NewRouter(),
+		buffer:        make([]router.Packet, serverBufferSize),
+		previous:      make(chan *response, 1),
+		authenticated: ProxyHandler,
+		decoy:         StaticHandler.ServeHTTP,
 	}
 
 	s.previous <- &response{
 		reqID:    "",
-		respData: []proxy.Packet{},
+		respData: []router.Packet{},
+	}
+
+	return s, nil
+}
+
+func NewServerWithCustomHandlers(conf config.Configuration, authenticated http.HandlerFunc, decoy http.HandlerFunc) (*Server, error) {
+	s, err := NewServer(conf)
+	if err != nil {
+		return s, err
+	}
+
+	if authenticated != nil {
+		s.authenticated = authenticated
+	}
+	if decoy != nil {
+		s.decoy = decoy
 	}
 
 	return s, nil
@@ -73,7 +92,7 @@ func NewServer(conf config.Configuration) (*Server, error) {
 
 // Start launches the server.
 func (s *Server) Start() error {
-	certReloader, err := lib.GetCertificate(
+	certReloader, err := crypto.GetCertificate(
 		s.conf["hostname"],
 		s.conf["email"],
 		func() {
@@ -182,9 +201,9 @@ func (s *Server) authenticate(provided string) bool {
 }
 
 //go:embed static/*
-var staticFiles embed.FS
-var staticHandler = func() http.Handler {
-	fSys, err := fs.Sub(staticFiles, "static")
+var StaticFiles embed.FS
+var StaticHandler = func() http.Handler {
+	fSys, err := fs.Sub(StaticFiles, "static")
 	if err != nil {
 		panic(err)
 	}
@@ -194,13 +213,13 @@ var staticHandler = func() http.Handler {
 // authenticate request
 func handler(w http.ResponseWriter, r *http.Request) {
 	if s.authenticate(r.Header.Get("Auth-Token")) {
-		proxyHandler(w, r) // authenticated proxy handler
+		s.authenticated(w, r) // authenticated proxy handler
 	} else {
-		staticHandler.ServeHTTP(w, r) // decoy handler
+		s.decoy(w, r) // decoy handler
 	}
 }
 
-func proxyHandler(w http.ResponseWriter, r *http.Request) {
+func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "error: method must be POST", http.StatusMethodNotAllowed)
 		return
@@ -217,9 +236,9 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "error while reading client payload: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	r.Body.Close()
+	defer r.Body.Close()
 
-	var packets []proxy.Packet
+	var packets []router.Packet
 	if err := json.Unmarshal(reqBytes, &packets); err != nil {
 		http.Error(w, "error: failed to parse JSON request: "+err.Error(), http.StatusBadRequest)
 		return
@@ -228,10 +247,10 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	prev := <-s.previous
 
 	if id != prev.reqID { // previous request was successful
-		go s.proxy.Ingest(packets)
+		go s.router.Ingest(packets)
 
 		prev.reqID = id
-		prev.respData = s.buffer[:s.proxy.Fill(s.buffer)]
+		prev.respData = s.buffer[:s.router.Fill(s.buffer)]
 	}
 
 	s.previous <- prev

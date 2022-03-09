@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/awnumar/rosen/protocols/config"
+	"github.com/awnumar/rosen/config"
 )
 
 var (

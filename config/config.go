@@ -11,7 +11,7 @@ import (
 	"github.com/fatih/color"
 )
 
-var protocols = []string{"https"}
+var protocols = []string{"https", "tcp"}
 
 // Specification is a set of config values for a protocol. One needs to be defined per supported protocol.
 type specification struct {
@@ -48,6 +48,8 @@ func Configure() (string, error) {
 	switch protocol {
 	case "https":
 		return processSpec(https)
+	case "tcp":
+		return processSpec(tcp)
 	default:
 		panic("error: unknown protocol") // should never happen
 	}
@@ -58,6 +60,8 @@ func verify(c Configuration) error {
 	switch c["protocol"] {
 	case "https":
 		s = https
+	case "tcp":
+		s = tcp
 	default:
 		return errors.New("unknown protocol")
 	}

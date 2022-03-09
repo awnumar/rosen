@@ -3,17 +3,20 @@ package main
 import (
 	"errors"
 
-	"github.com/awnumar/rosen/protocols/config"
+	"github.com/awnumar/rosen/config"
 	"github.com/awnumar/rosen/protocols/https"
-	"github.com/awnumar/rosen/proxy"
+	"github.com/awnumar/rosen/protocols/tcp"
+	"github.com/awnumar/rosen/router"
 )
 
 func server(conf config.Configuration) (err error) {
-	var server proxy.Server
+	var server router.Server
 
 	switch conf["protocol"] {
 	case "":
 		return errors.New("protocol must be specified in config file")
+	case "tcp":
+		server, err = tcp.NewServer(conf)
 	case "https":
 		server, err = https.NewServer(conf)
 	default:

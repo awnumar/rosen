@@ -20,6 +20,7 @@ This package implements a modular framework for proxies that encapsulate traffic
 ### Supported protocols
 
 - HTTPS
+- TCP
 
 ### Installation
 
